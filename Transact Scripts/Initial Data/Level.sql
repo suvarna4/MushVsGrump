@@ -1,0 +1,23 @@
+Use MushVsGrump
+Go
+
+INSERT INTO Level (Level_num, Exp)
+	Values(1, 100)
+INSERT INTO Level (Level_num, Exp)
+	Values(2, 121)
+INSERT INTO Level (Level_num, Exp)
+	Values(3, 144)
+INSERT INTO Level (Level_num, Exp)
+	Values(4, 169)
+INSERT INTO Level (Level_num, Exp)
+	Values(5, 196)
+INSERT INTO Level (Level_num, Exp)
+	Values(6, 225)
+INSERT INTO Level (Level_num, Exp)
+	Values(7, 256)
+INSERT INTO Level (Level_num, Exp)
+	Values(8, 289)
+INSERT INTO Level (Level_num, Exp)
+	Values(9, 324)
+INSERT INTO Level (Level_num, Exp)
+	Values(10, 361)

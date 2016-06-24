@@ -1,0 +1,38 @@
+USE MushVsGrump
+GO
+
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (6, .05, 'blade')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (7, .10, 'blade')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (8, .20, 'blade')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (9, .30, 'blade')
+
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (10, .05, 'melee')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (11, .10, 'melee')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (12, .20, 'melee')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (13, .30, 'melee')
+
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (14, .05, 'blunt')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (15, .10, 'blunt')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (16, .20, 'blunt')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (17, .30, 'blunt')
+
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (18, .05, 'ranged')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (19, .10, 'ranged')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (20, .20, 'ranged')
+INSERT INTO Weapon_Changer(ItId, Amt_Changed, Weapon_Type)
+	VALUES (21, .30, 'ranged')

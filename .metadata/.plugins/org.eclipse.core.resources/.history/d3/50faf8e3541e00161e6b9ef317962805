@@ -1,0 +1,69 @@
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+
+public class Enemy {
+	private float baseHP;
+	// maxHP is calculated client-side by multiplying baseHP and hpMult
+	private float maxHP;
+	private float hP;
+	private float dmgMult;
+	private float hpMult;
+	private int weapon;
+	private String weaponPoison;
+	private float maxWeaponDmg;
+	public String name;
+	// con must be used to access DB
+	Connection con;
+	// CallableStatement is used for stored procedures
+	CallableStatement stmt;
+
+	public Enemy(int lvl, String chName) throws SQLException {
+		// Make the connection to SQL Server for queries.
+		name = chName;
+		this.con = ConnectURL.makeConnection();
+		String sql = "{call getEnemy (?, ?, ?, ?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setString(1, chName);
+		stmt.setString(2, Integer.toString(lvl));
+		stmt.registerOutParameter(3, Types.REAL);
+		stmt.registerOutParameter(4, Types.INTEGER);
+		stmt.execute();
+		// Use res.getString to get columns from returned row
+		// 1: Actual_hp 2: Base_HP 3: Exp 4: Floor 5: Room
+		// 6: ChID 7: InID
+		this.baseHP = Float.parseFloat(stmt.getString(3));
+		this.weapon = stmt.getInt(4);
+		sql = "{call getMultipliersLvl (?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setString(1, Integer.toString(lvl));
+		ResultSet res = stmt.executeQuery();
+		while (res.next()) {
+			this.dmgMult = Float.parseFloat(res.getString(1));
+			this.hpMult = Float.parseFloat(res.getString(2));
+		}
+		this.maxHP = this.baseHP * this.hpMult;
+		stmt = con.prepareCall("{call getDamage(?,?)}");
+		stmt.setInt(1, weapon);
+		stmt.registerOutParameter(2, Types.REAL);
+		stmt.execute();
+		this.maxWeaponDmg = Float.parseFloat(stmt.getString(2))*this.dmgMult;
+		hP = maxHP;
+	}
+	public int getWeapon(){
+		return weapon;
+	}
+	public float reduceHP(float a){
+		hP = hP - a;
+		return hP;
+	}
+	public float maxHP(){
+		return maxHP;
+	}
+	public float maxDamage(){
+		return maxWeaponDmg;
+	}
+
+}

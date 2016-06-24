@@ -1,0 +1,452 @@
+
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Scanner;
+
+public class Game {
+	Player character;
+	Scanner scan;
+	char input;
+	Player[] enemies;
+	Scenario checkpoint;
+	Scenario current;
+	ArrayList<Character> act;
+	// Needs to be referenced to access CD
+	Connection con;
+	// CallableStatement is used for stored procedures
+	CallableStatement stmt;
+	boolean showExplanations = false;
+	StringBuilder explanations = new StringBuilder();
+
+	public Game(Player c) throws SQLException {
+		// Make the connection to SQL Server for queries.
+		character = c;
+		con = ConnectURL.makeConnection();
+		scan = new Scanner(System.in);
+
+		// String name = scan.next();
+		// character = new Player(c);
+		Scenario checkpoint = new Scenario(0, 1);
+		current = checkpoint;
+
+		main();
+	}
+
+	public void main() throws SQLException {
+		while (true) {
+			act = getActions();
+			System.out.println("Health: " + this.character.getHP() + "/" + this.character.getMaxHP() + " Floor: "
+					+ character.getFloor() + " Room: " + character.getRoom());
+			// System.out.println("l: go left; r: go right; f: go forward; "
+			// + "i: view inventory; d: delete from inventory; h: help; e:
+			// exit");
+			String choices = stringActions();
+			System.out.println(explanations.toString());
+			System.out.println("Your choices are: " + choices);
+			String c = scan.next();
+			handleActions(c);
+		}
+	}
+
+	public ArrayList<Character> getActions() {
+		ArrayList<Character> actions = new ArrayList<Character>();
+		actions.addAll(current.getActions());
+		actions.add('h');
+		return actions;
+	}
+
+	public String stringActions() {
+		StringBuilder sb = new StringBuilder();
+		explanations = new StringBuilder();
+		if (showExplanations) {
+			for (Character c : act) {
+				sb.append(c);
+				explanations = addExplanation(explanations, c);
+				sb.append(' ');
+			}
+		} else {
+			for (Character c : act) {
+				sb.append(c);
+				// explanations = addExplanation(explanations, c);
+				sb.append(' ');
+			}
+		}
+
+		// Make the option to show or hide explanations last
+		sb.append('s');
+		explanations = addExplanation(explanations, 's');
+		sb.append(' ');
+		return sb.toString();
+	}
+
+	/**
+	 * Adds the appropriate explanation for the character the user can hit for
+	 * this round.
+	 * 
+	 * @param explanations2
+	 * @param c
+	 */
+	private StringBuilder addExplanation(StringBuilder ex, Character c) {
+		// System.out.println("in addExplanations c: " + c + " ex: " + ex);
+		if (c.equals('f'))
+			ex.append("Press f then hit enter to move forward to the next room.  ");
+		else if (c.equals('p'))
+			ex.append("Press p to poison a weapon.  ");
+		else if (c.equals('s'))
+			if (showExplanations)
+				ex.append("Press s then hit enter to hide these explanations.  ");
+			else
+				ex.append("Press s then hit enter to show the explanations.  ");
+		else if (c.equals('l'))
+			ex.append("Press l then hit enter to move to the room that's left of this room.  ");
+		else if (c.equals('r'))
+			ex.append("Press r then hit enter to move to the room that's right of this room.  ");
+		else if (c.equals('b'))
+			ex.append("Press b then hit enter to go back to the room you came from. ");
+		else if (c.equals('h'))
+			ex.append("Press h then hit enter to see the help screen.  ");
+		else if (c.equals('e'))
+			ex.append("Press e then hit enter to exit the game.  ");
+		else if (c.equals('i'))
+			ex.append("Press i then hit enter to see your inventory of items and weapons.  ");
+		else if (c.equals('d'))
+			ex.append("Press d then hit enter to delete items from your inventory.  ");
+		else if (c.equals('z'))
+			ex.append("Press z then hit enter to save your current state.  ");
+		else if (c.equals('0'))
+			ex.append("Press 0 then hit enter to put an item you found into your inventory.  ");
+		else if (c.equals('1'))
+			ex.append("Press 1 then hit enter to put an item you found into your inventory.  ");
+		else if (c.equals('2'))
+			ex.append("Press 2 then hit enter to put an item you found into your inventory.  ");
+		else if (c.equals('3'))
+			ex.append("Press 3 then hit enter to battle an enemy!  ");
+		else if (c.equals('4'))
+			ex.append("Press 4 then hit enter to battle an enemy!  ");
+		return ex;
+	}
+
+	/**
+	 * Handles when the user enters a character and presses the enter key.
+	 * 
+	 * @param c
+	 * @throws SQLException
+	 */
+	public void handleActions(String c) throws SQLException {
+		ResultSet res;
+		StringBuilder str;
+		String sql;
+		switch (c) {
+		case "f":
+			if (current.forwardScen != null)
+				current = current.forwardScen;
+			else
+				current = new Scenario(0, 1, 'f', current);
+			break;
+		case "b":
+			if (current.backScen != null)
+				current = current.backScen;
+			else
+				current = new Scenario(0, 1, 'b', current);
+			break;
+		case "l":
+			if (current.leftScen != null)
+				current = current.leftScen;
+			else
+				current = new Scenario(0, 1, 'l', current);
+			break;
+		case "r":
+			if (current.rightScen != null)
+				current = current.rightScen;
+			else
+				current = new Scenario(0, 1, 'r', current);
+			break;
+		case "h":
+			helpString();
+			break;
+		case "s":
+			showExplanations = !showExplanations;
+			break;
+		case "i":
+			displayInventory();
+			displayWeapons(null);
+			break;
+		// DONE: Ryan make the inventory show up here
+		case "d":
+			sql = "{call [UpdateItemInInventory] (?,?,?)}";
+			stmt = con.prepareCall(sql);
+			stmt.setInt(1, character.getInID());
+
+			System.out.println("Insert item ID to update");
+			int i = scan.nextInt();
+			stmt.setInt(2, i);
+
+			System.out.println("Insert amount to update (negative for removal)");
+			i = scan.nextInt();
+			stmt.setInt(3, i);
+
+			stmt.executeUpdate();
+
+			System.out.println(i + " items added!");
+			break;
+		// DONE: Ryan allow the user to delete item(s) here
+		case "u":
+			// TODO: Next Milestone -- Use items
+		case "z":
+			sql = "{call [saveState] (?,?,?,?)}";
+			stmt = con.prepareCall(sql);
+			stmt.setInt(1, character.getChID());	//ChID
+			stmt.setInt(2, character.getFloor());	//floor
+			stmt.setInt(3, character.getRoom());	//room
+			stmt.setInt(4,100);						//temp for actualHP
+//			stmt.setFloat(4, character.actualHP);	//actualHP, which is currently commented out, I dont know why
+			stmt.executeUpdate();
+			System.out.println("Game Saved");
+			break;
+		case "p":
+			poisonWeapon();
+			break;
+		case "0":
+			if (current.interactibles.get(0).type == 0) {
+				character.insertIntoInventory(current.interactibles.get(0).id, "I");
+			} else {
+				character.insertIntoInventory(current.interactibles.get(0).id, "W");
+			}
+			current.interactibles.remove(0);
+			break;
+		case "1":
+			if (current.interactibles.get(1).type == 0) {
+				character.insertIntoInventory(current.interactibles.get(1).id, "I");
+			} else {
+				character.insertIntoInventory(current.interactibles.get(1).id, "W");
+			}
+			current.interactibles.remove(1);
+			break;
+		case "2":
+			if (current.interactibles.get(2).type == 0) {
+				character.insertIntoInventory(current.interactibles.get(2).id, "I");
+			} else {
+				character.insertIntoInventory(current.interactibles.get(2).id, "W");
+			}
+			current.interactibles.remove(2);
+			break;
+		case "3":
+			new Battle(character, current.enemies.get(0));
+			if (character.getHP() < 0) {
+				System.out.println("Starting from checkpoint.");
+				current = checkpoint;
+			}
+			break;
+		case "4":
+			new Battle(character, current.enemies.get(1));
+			if (character.getHP() < 0) {
+				System.out.println("Starting from checkpoint.");
+				current = checkpoint;
+			}
+			break;
+		case "e":
+			scan.close();
+			System.out.println("Quitting game");
+			System.exit(0);
+		}
+	}
+
+	private void displayInventory() throws SQLException {
+		String sql = "{call [Display Inventory] (?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setInt(1, character.getInID());
+		ResultSet res = stmt.executeQuery();
+		StringBuilder str = new StringBuilder();
+		while (res.next()) {
+			str.append(res.getString(1));
+			str.append(" (");
+			str.append(res.getString(2));
+			str.append("); ");
+		}
+		System.out.println(str.toString());
+	}
+
+	private HashMap<Integer, Integer> displayPoisons(HashMap<Integer, Integer> displayNumToItID) throws SQLException {
+		String sql = "{call displayPoisons (?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setInt(1, character.getInID());
+		ResultSet res = stmt.executeQuery();
+		StringBuilder str = new StringBuilder();
+		int i = 1;
+		while (res.next()) {
+			displayNumToItID.put((Integer) i, Integer.parseInt(res.getString(5)));
+			str.append(i + ".) " + res.getString(1));
+			str.append(" (num: ");
+			str.append(res.getString(2));
+			str.append(") ");
+			str.append("Damage increase (vs. no poison): x1" + res.getString(3).substring(1) + " for weapons of type "
+					+ res.getString(4) + ".  ");
+			i++;
+		}
+		System.out.println(str.toString());
+		return displayNumToItID;
+	}
+
+	private HashMap<Integer, Integer> displayWeapons(HashMap<Integer, Integer> displayNumToWeID) throws SQLException {
+		String sql = "{call displayWeapons (?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setInt(1, this.character.getChID());
+		ResultSet res = stmt.executeQuery();
+		StringBuilder str = new StringBuilder();
+		if (displayNumToWeID == null) {
+			while (res.next()) {
+				str.append(res.getString(1));
+				str.append(". poison: ");
+				String poison = res.getString(4);
+				if (poison == null)
+					str.append("none. ");
+				else {
+					str.append(poison);
+					str.append(", x1" + res.getString(5).substring(1) + " dmg. ");
+				}
+			}
+		} else {
+			int i = 1;
+			while (res.next()) {
+				displayNumToWeID.put(i, Integer.parseInt(res.getString(3)));
+				str.append(i + ".) " + res.getString(1));
+				str.append(". poison: ");
+				String poison = res.getString(4);
+				if (poison == null)
+					str.append("none. ");
+				else {
+					str.append(poison);
+					str.append(", x1" + res.getString(5).substring(1) + " dmg. ");
+				}
+				i++;
+			}
+		}
+		System.out.println(str.toString());
+		return displayNumToWeID;
+	}
+
+	private void poisonWeapon() throws SQLException {
+		HashMap<Integer, Integer> displayNumToItID = new HashMap<Integer, Integer>();
+		displayNumToItID = displayPoisons(displayNumToItID);
+		System.out.println("Enter the number that corresponds to the poison you want to use: (e to exit)");
+		String next = scan.next();
+		if (next.equals("e"))
+			return;
+		Integer pNum = Integer.parseInt(next);
+		if (!displayNumToItID.containsKey(pNum)) {
+			System.out.println("Error: That number does not correspond to a poison");
+			return;
+		}
+		HashMap<Integer, Integer> displayNumToWeID = new HashMap<Integer, Integer>();
+		System.out.println("Okay.  Now, here are you weapons: ");
+		displayNumToWeID = displayWeapons(displayNumToWeID);
+		System.out.println("Enter the number that corresponds to the weapon you want to poison: (e to exit) ");
+		next = scan.next();
+		if (next.equals("e"))
+			return;
+		Integer wNum = Integer.parseInt(next);
+		if (!displayNumToWeID.containsKey(wNum)) {
+			System.out.println("Error: That number does not correspond to a weapon");
+			return;
+		}
+		applyPoison(displayNumToItID.get(pNum), displayNumToWeID.get(wNum));
+	}
+
+	private void applyPoison(Integer ItID, Integer WeID) throws SQLException {
+		String sql = "{? = call applyPoison (?, ?, ?, ?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setInt(2, character.chID);
+		stmt.setInt(3, ItID);
+		stmt.setInt(4, WeID);
+		stmt.setInt(5, character.getInID());
+		stmt.registerOutParameter(1, Types.INTEGER);
+		boolean hadResults = stmt.execute();
+		int result = stmt.getInt(1);
+		if (result == 1)
+			System.out.println("Weapon has been poisoned!");
+		else
+			System.out.println("Weapon poison cannot poison this type of weapon");
+	}
+
+	/**
+	 * Used to show help for specific commands.
+	 * 
+	 * @throws SQLException
+	 */
+	public void helpString() throws SQLException {
+		System.out.println("Which command do you need information on?");
+		String c = scan.next();
+		CallableStatement cs;
+		String b;
+		ResultSet res;
+		StringBuilder str;
+		String sql;
+		switch (c) {
+		case "f":
+			System.out.println("Go forward");
+			break;
+		case "b":
+			System.out.println("Go back");
+			break;
+		case "l":
+			System.out.println("Go left");
+			break;
+		case "r":
+			System.out.println("Go right");
+			break;
+		case "h":
+			System.out.println("This is the help function");
+			break;
+		case "0":
+			if (current.interactibles.get(0).type == 0) {
+				cs = con.prepareCall("{call get_Item_Name(?,?)}");
+			} else {
+				cs = con.prepareCall("{call get_Weapon_Name(?,?)}");
+			}
+			cs.setInt(1, current.interactibles.get(0).id);
+			cs.registerOutParameter(2, Types.VARCHAR);
+			cs.execute();
+			b = cs.getString(2);
+			System.out.println(b);
+			break;
+		case "1":
+			if (current.interactibles.get(1).type == 0) {
+				cs = con.prepareCall("{call get_Item_Name(?,?)}");
+			} else {
+				cs = con.prepareCall("{call get_Weapon_Name(?,?)}");
+			}
+			cs.setInt(1, current.interactibles.get(1).id);
+			cs.registerOutParameter(2, Types.VARCHAR);
+			cs.execute();
+			b = cs.getString(2);
+			System.out.println(b);
+			break;
+		case "2":
+			if (current.interactibles.get(2).type == 0) {
+				cs = con.prepareCall("{call get_Item_Name(?,?)}");
+			} else {
+				cs = con.prepareCall("{call get_Weapon_Name(?,?)}");
+			}
+			cs.setInt(1, current.interactibles.get(2).id);
+			cs.registerOutParameter(2, Types.VARCHAR);
+			cs.execute();
+			b = cs.getString(2);
+			System.out.println(b);
+			break;
+
+		case "3":
+			System.out.println(current.enemies.get(0).name);
+			break;
+		case "4":
+			System.out.println(current.enemies.get(1).name);
+			break;
+		}
+	}
+
+}

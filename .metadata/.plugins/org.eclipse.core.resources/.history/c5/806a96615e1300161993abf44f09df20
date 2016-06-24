@@ -1,0 +1,67 @@
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.ArrayList;
+import java.util.Scanner;
+
+public class Battle {
+	Player p;
+	Enemy e;
+	Connection con;
+	boolean b = true;
+	Scanner scan;
+	public Battle(Player c, Enemy b) throws SQLException{
+		p = c;
+		e=b;
+		System.out.println("You are fighting: " + b.name);
+		this.con = ConnectURL.makeConnection();
+		CallableStatement cs = con.prepareCall("{call get_Weapon_Name(?,?)}");
+		cs.setInt(1, b.getWeapon());
+		cs.registerOutParameter(2, Types.VARCHAR);
+		cs.execute();
+		System.out.println(b.name + " is wielding " + cs.getString(2));
+		scan = new Scanner(System.in);
+		main();
+	}
+	public void main() throws SQLException{
+		while(true){
+			System.out.println(e.name + " has " + e.reduceHP(0) + " HP.");
+			System.out.println("You have " + p.getHP() + " HP." );
+			System.out.println("What would you like to do?");
+			System.out.println("(a)ttack, (i)tem, (f)lee");
+			String c = scan.next();
+			if(c == "f"){
+				break;
+			}
+			else if(c.equals("a")){
+				handleWeapons();
+			}
+			else {
+				
+			}
+		}
+	}
+	public void handleWeapons() throws SQLException{
+		System.out.println("You currently own: ");
+		int count = 0;
+		ArrayList<String> d = p.getWeapons();
+		for(String c: d){
+			System.out.println(count + " " + c);
+			count++;
+		}
+		System.out.println("Choose your weapon.");
+		int i = scan.nextInt();
+		CallableStatement cs = con.prepareCall("{call getAttackandDamage(?,?,?)}");
+		cs.setString(1, d.get(i));
+		cs.registerOutParameter(2, Types.VARCHAR);
+		cs.registerOutParameter(3, Types.REAL);
+		cs.execute();
+		System.out.println("You used " + cs.getString(2));
+		e.reduceHP(Float.parseFloat(cs.getString(3)));
+		
+	}
+	
+
+	
+}

@@ -1,0 +1,125 @@
+import java.sql.CallableStatement;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Types;
+import java.util.ArrayList;
+
+public class Player {
+	private float baseHP;
+	// maxHP is calculated client-side by multiplying baseHP and hpMult
+	private float maxHP;
+	private float actualHP;
+	private float exp;
+	private int floor;
+	private int room;
+	private int chID;
+	private int inID;
+	private float dmgMult;
+	private float hpMult;
+	private String weaponName;
+	private String weaponPoison;
+	private float maxWeaponDmg;
+	// con must be used to access DB
+	Connection con;
+	// CallableStatement is used for stored procedures
+	CallableStatement stmt;
+
+	public Player(String username, String chName) throws SQLException {
+		// Make the connection to SQL Server for queries.
+		this.con = ConnectURL.makeConnection();
+		String sql = "{call getUserCharacter (?, ?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setString(1, username);
+		stmt.setString(2, chName);
+		ResultSet res = stmt.executeQuery();
+		// Use res.getString to get columns from returned row
+		// 1: Actual_hp 2: Base_HP 3: Exp 4: Floor 5: Room
+		// 6: ChID 7: InID
+		while (res.next()) {
+			this.actualHP = Float.parseFloat(res.getString(1));
+			this.baseHP = Float.parseFloat(res.getString(2));
+			this.exp = Float.parseFloat(res.getString(3));
+			this.floor = Integer.parseInt(res.getString(4));
+			this.room = Integer.parseInt(res.getString(5));
+			this.chID = Integer.parseInt(res.getString(6));
+			this.inID = Integer.parseInt(res.getString(7));
+		}
+		
+		sql = "{call InsertIntoInventory (?, ?, ?)}";
+		
+		stmt = con.prepareCall(sql);
+		stmt.setInt(1, inID);
+		stmt.setInt(2, 1);
+		stmt.setNString(3, "I");
+		stmt.execute();
+		
+//		sql = "{call InsertIntoInventory (inID, 2)}";
+//		stmt = con.prepareCall(sql);
+//		stmt.executeQuery();
+		
+		
+		sql = "{call getMultipliersExp (?)}";
+		stmt = con.prepareCall(sql);
+		stmt.setString(1, Float.toString(this.exp));
+		res = stmt.executeQuery();
+		while (res.next()) {
+			this.dmgMult = Float.parseFloat(res.getString(1));
+			this.hpMult = Float.parseFloat(res.getString(2));
+		}
+		this.maxHP = this.baseHP * this.hpMult;
+		stmt = con.prepareCall("{call setHP(?,?)}");
+		stmt.setInt(1, chID);
+		stmt.setFloat(2, maxHP);
+		stmt.execute();
+	}
+	
+	public void insertIntoInventory(int id, String type) throws SQLException{
+		CallableStatement cs = con.prepareCall("{call InsertIntoInventory (?, ?, ?)}");
+		cs.setInt(1, inID);
+		cs.setInt(2, id);
+		cs.setString(3, type);
+		cs.execute();
+	}
+	
+	public float getHP() throws SQLException{
+		CallableStatement cs = con.prepareCall("{call getHP(?, ?)}");
+		cs.setInt(1, chID);
+		cs.registerOutParameter(2, Types.REAL);
+		cs.execute();
+		return Float.parseFloat(cs.getString(2));
+	}
+	
+	public void reduceHP(float damage) throws SQLException{
+		stmt = con.prepareCall("{call setHP(?,?)}");
+		stmt.setInt(1, chID);
+		stmt.setFloat(2, getHP()-damage);
+	}
+	
+	public void heal(float heal) throws SQLException{
+		float hP = getHP()+ maxHP*heal;
+		if(maxHP<hP){
+			hP = maxHP;
+		}
+		stmt = con.prepareCall("{call setHP(?,?)}");
+		stmt.setInt(1, chID);
+		stmt.setFloat(2, hP);
+	}
+	
+	public ArrayList<String> getWeapons() throws SQLException{
+		ArrayList<String> weapons = new ArrayList<String>();
+		stmt = con.prepareCall("{call getWeapons(?)}");
+		stmt.setInt(1, inID);
+		boolean b = stmt.execute();
+		while(b){
+			ResultSet rs = stmt.getResultSet();
+			while(rs.next()){
+				weapons.add(rs.getString("WeName"));
+			}
+			rs.close();
+			b = stmt.getMoreResults();
+		}
+		stmt.close();
+		return weapons;
+	}
+}

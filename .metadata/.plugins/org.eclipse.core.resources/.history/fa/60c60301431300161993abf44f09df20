@@ -1,0 +1,6 @@
+
+public class Battle {
+	public Battle(Player c, Enemy b){
+		
+	}
+}
